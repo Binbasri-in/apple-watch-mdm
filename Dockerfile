@@ -1,15 +1,31 @@
-# Start with a base image containing Java runtime
-FROM openjdk:21-jdk
-
-# Set the working directory in the container
+# Build stage
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 WORKDIR /app
+COPY pom.xml .
+# Download all required dependencies
+RUN mvn dependency:go-offline -B
+COPY src ./src
+# Package the application
+RUN mvn package -DskipTests
+RUN mkdir -p target/dependency && (cd target/dependency; jar -xf ../apple-mdm-0.0.1-SNAPSHOT.jar)
 
-# Copy the Spring Boot application JAR file (ensure the JAR file is built before running this Dockerfile)
-# Assuming the JAR file is in the target directory after a Maven/Gradle build
-COPY target/apple-mdm-0.0.1-SNAPSHOT.jar app.jar
+# Production stage
+FROM eclipse-temurin:21-jre-alpine
+ARG DEPENDENCY=/app/target/dependency
+COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
+COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
+COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
 
-# Expose the port the application will run on (update this based on your Spring Boot server port if not default)
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+
+# Create a non-root user to run the application
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+# Set the entrypoint
+ENTRYPOINT ["java", "-cp", "app:app/lib/*", "binbasri.apple_mdm.AppleMdmApplication"]
+
+# Expose the application port
 EXPOSE 8080
-
-# Run the JAR file
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
