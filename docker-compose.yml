@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  apple-mdm:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY_OWNER:-local}/apple-mdm:${TAG:-latest}
+    container_name: apple-mdm
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      # Add other environment variables as needed
+      # - DATABASE_URL=jdbc:postgresql://db:5432/mdm
+      # - DATABASE_USERNAME=postgres
+      # - DATABASE_PASSWORD=postgres
+    restart: unless-stopped
+    # Uncomment for database connectivity
+    # depends_on:
+    #   - db
+    networks:
+      - mdm-network
+
+  # Uncomment if you need a database
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: mdm-postgres
+  #   environment:
+  #     - POSTGRES_DB=mdm
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - mdm-network
+
+networks:
+  mdm-network:
+    driver: bridge
+
+# Uncomment if you need a database
+# volumes:
+#   postgres_data:
